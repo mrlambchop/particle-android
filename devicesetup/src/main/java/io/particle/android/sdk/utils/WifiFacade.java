@@ -12,12 +12,14 @@ import android.net.ConnectivityManager.NetworkCallback;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.NetworkSpecifier;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
+import android.os.PatternMatcher;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -28,6 +30,8 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+
+import io.particle.android.sdk.devicesetup.ui.DeviceSetupState;
 import io.particle.android.sdk.utils.Funcy.Predicate;
 
 import java.util.concurrent.CountDownLatch;
@@ -70,6 +74,7 @@ public class WifiFacade {
         this.connectivityManager = connectivityManager;
     }
 
+    //This only works below API level 29
     public int getIdForConfiguredNetwork(SSID ssid) {
         WifiConfiguration configuredNetwork = Funcy.findFirstMatch(
                 getConfiguredNetworks(),
@@ -88,6 +93,7 @@ public class WifiFacade {
         }
     }
 
+    //this only works below API level 29
     public boolean reenableNetwork(SSID ssid) {
         int networkId = getIdForConfiguredNetwork(ssid);
         if (networkId == -1) {
@@ -98,6 +104,7 @@ public class WifiFacade {
             return wifiManager.enableNetwork(networkId, false);
         }
     }
+
 
     public boolean removeNetwork(SSID ssid) {
         int networkId = getIdForConfiguredNetwork(ssid);
@@ -111,8 +118,8 @@ public class WifiFacade {
     }
 
     @Nullable
-    public SSID getCurrentlyConnectedSSID() {
-        WifiInfo connectionInfo = getConnectionInfo();
+    public SSID getCurrentlyConnectedSSID(Boolean softAPOnly) {
+        WifiInfo connectionInfo = getConnectionInfo(softAPOnly);
         if (connectionInfo == null) {
             log.w("getCurrentlyConnectedSSID(): WifiManager.getConnectionInfo() returned null");
             return null;
@@ -175,9 +182,28 @@ public class WifiFacade {
         return null;
     }
 
+    public void reenablePreviousWifi(SSID prevSSID) {
+        if (Build.VERSION.SDK_INT < 29 ) {
+            reenableNetwork(prevSSID);
+            reassociate();
+        } else {
+            final NetworkSpecifier specifier =
+                    new NetworkRequest.Builder()
+                            .setSsid(prevSSID)
+                            .build();
+            final NetworkRequest request =
+                    new NetworkRequest.Builder()
+                            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                            .setNetworkSpecifier(specifier)
+                            .build();
+            connectivityManager.requestNetwork(request, networkCallback);
+        }
+    }
+
     @Nullable
-    private WifiInfo getConnectionInfo() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ) {
+    private WifiInfo getConnectionInfo(Boolean softAPOnly) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ) {
             return wifiManager.getConnectionInfo();
         }
 
@@ -191,19 +217,37 @@ public class WifiFacade {
                     @Override
                     public void onCapabilitiesChanged(@NonNull Network network,
                                                       @NonNull NetworkCapabilities networkCapabilities) {
+
                         if (Build.VERSION.SDK_INT >= VERSION_CODES.Q) {
-                            answerBox.wifiInfo = (WifiInfo) networkCapabilities.getTransportInfo();
+                            //is this our SOFT AP?
+                            if (softAPOnly && !networkCapabilities.hasCapability(NET_CAPABILITY_INTERNET)) {
+                                answerBox.wifiInfo = (WifiInfo) networkCapabilities.getTransportInfo();
+                                waitForNetwork.countDown();
+                            } //is this our internet connection?
+                            else if (!softAPOnly && networkCapabilities.hasCapability(NET_CAPABILITY_INTERNET))
+                            {
+                                answerBox.wifiInfo = (WifiInfo) networkCapabilities.getTransportInfo();
+                                waitForNetwork.countDown();
+                            }
                         }
-                        waitForNetwork.countDown();
                     }
                 };
+
+        NetworkRequest.Builder networkRequestBuilder = new NetworkRequest.Builder();
+        networkRequestBuilder.addTransportType(TRANSPORT_WIFI);
+
+//        if( softAPOnly ) {
+//            //networkRequestBuilder.addCapability(NET_CAPABILITY_WIFI_P2P);
+//        } else {
+//            networkRequestBuilder.addCapability(NET_CAPABILITY_INTERNET);
+//        }
+
+        NetworkRequest networkRequest = networkRequestBuilder.build();
+
         connectivityManager.registerNetworkCallback(
-                new NetworkRequest.Builder()
-                        .addTransportType(TRANSPORT_WIFI)
-                        //.addCapability(NET_CAPABILITY_WIFI_P2P)
-                        .build(), networkCallback);
+                networkRequest, networkCallback);
         try {
-            if (!waitForNetwork.await(5, TimeUnit.SECONDS)) {
+            if (!waitForNetwork.await(1, TimeUnit.SECONDS)) {
                 log.e("Timed out waiting for network to connect");
                 return null;
             }

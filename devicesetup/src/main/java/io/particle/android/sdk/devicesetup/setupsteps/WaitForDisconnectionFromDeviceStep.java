@@ -30,16 +30,19 @@ public class WaitForDisconnectionFromDeviceStep extends SetupStep {
     @Override
     protected void onRunStep() throws SetupStepException, SetupProcessException {
         for (int i = 0; i <= 5; i++) {
-            if (isConnectedToSoftAp()) {
+            if (isConnectedToSoftAP()) {
                 // wait and try again
                 EZ.threadSleep(200);
             } else {
-                EZ.threadSleep(1000);
+                //sleep after loosing the softAP network to give time to connect to the main wifi again
+                EZ.threadSleep(1500);
+
                 // success, no longer connected.
                 wasDisconnected = true;
-                if (EZ.isUsingOlderWifiStack()) {
-                    // for some reason Lollipop doesn't need this??
-                    reenablePreviousWifi();
+
+                //if we are not connected to our previous wifi network now, prompt it now
+                if( !isConnectedToMainWiFi() ) {
+                    wifiFacade.reenablePreviousWifi(DeviceSetupState.previouslyConnectedWifiNetwork);
                 }
                 return;
             }
@@ -49,16 +52,17 @@ public class WaitForDisconnectionFromDeviceStep extends SetupStep {
         throw new SetupStepException("Not disconnected from soft AP");
     }
 
-    private void reenablePreviousWifi() {
+    private boolean isConnectedToSoftAP() {
+        SSID currentlyConnectedSSID = wifiFacade.getCurrentlyConnectedSSID(false);
         SSID prevSSID = DeviceSetupState.previouslyConnectedWifiNetwork;
-        wifiFacade.reenableNetwork(prevSSID);
-        wifiFacade.reassociate();
-    }
-
-    private boolean isConnectedToSoftAp() {
-        SSID currentlyConnectedSSID = wifiFacade.getCurrentlyConnectedSSID();
         log.d("Currently connected SSID: " + currentlyConnectedSSID);
-        return softApName.equals(currentlyConnectedSSID);
+        return prevSSID.equals(currentlyConnectedSSID);
     }
 
+    private boolean isConnectedToMainWiFi() {
+        SSID currentlyConnectedSSID = wifiFacade.getCurrentlyConnectedSSID(false);
+        SSID prevSSID = DeviceSetupState.previouslyConnectedWifiNetwork;
+        log.d("Currently connected SSID: " + currentlyConnectedSSID);
+        return prevSSID.equals(currentlyConnectedSSID);
+    }
 }

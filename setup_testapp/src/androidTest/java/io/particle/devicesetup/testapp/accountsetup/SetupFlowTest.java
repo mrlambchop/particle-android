@@ -226,7 +226,7 @@ public class SetupFlowTest {
         when(wifiInfo.getSSID()).thenReturn(ssid);
         when(wifiInfo.getNetworkId()).thenReturn(5);
         //mock wifi wrapper to return fake photon device as "connected" network
-        when(wifiFacade.getCurrentlyConnectedSSID()).thenReturn(SSID.from(ssid));
+        when(wifiFacade.getCurrentlyConnectedSSID(true)).thenReturn(SSID.from(ssid));
         when(wifiFacade.getConnectionInfo()).thenReturn(wifiInfo);
         //mock device discovery process worker to do nothing (would throw exception),
         //doing nothing would mean successful connection to ap

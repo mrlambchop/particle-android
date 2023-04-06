@@ -77,7 +77,7 @@ public class EnsureSoftApNotVisible extends SetupStep {
     private boolean isSoftApVisible() {
         List<SSID> scansPlusConnectedSsid = list();
 
-        SSID currentlyConnected = wifiFacade.getCurrentlyConnectedSSID();
+        SSID currentlyConnected = wifiFacade.getCurrentlyConnectedSSID(true);
         if (currentlyConnected != null) {
             scansPlusConnectedSsid.add(currentlyConnected);
         }

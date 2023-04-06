@@ -42,7 +42,7 @@ class ApConnectorApi21(
         // cancel any currently running timeout, etc
         clearState()
         val configSSID = SSID.from(config)
-        val currentConnectionInfo = wifiFacade.currentlyConnectedSSID
+        val currentConnectionInfo = wifiFacade.getCurrentlyConnectedSSID(true)
         // are we already connected to the right AP?  (this could happen on retries)
         if (isAlreadyConnectedToTargetNetwork(currentConnectionInfo, configSSID)) {
             // we're already connected to this AP, nothing to do.
@@ -116,7 +116,7 @@ class ApConnectorApi21(
                 wifiFacade.reconnect()
             }
         }
-        val currentlyConnectedSSID = wifiFacade.currentlyConnectedSSID
+        val currentlyConnectedSSID = wifiFacade.getCurrentlyConnectedSSID(true)
         softAPConfigRemover.onWifiNetworkDisabled(currentlyConnectedSSID)
         var timeout: Long = 0
         for (runnable in setupRunnables) {

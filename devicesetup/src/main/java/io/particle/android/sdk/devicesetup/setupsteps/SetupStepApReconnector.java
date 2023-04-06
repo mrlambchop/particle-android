@@ -65,7 +65,7 @@ public class SetupStepApReconnector {
     }
 
     private boolean isConnectedToSoftAp() {
-        return softApSSID.equals(wifiFacade.getCurrentlyConnectedSSID());
+        return softApSSID.equals(wifiFacade.getCurrentlyConnectedSSID(true));
     }
 
     private CountDownLatch mainThread(final Runnable runnable) {

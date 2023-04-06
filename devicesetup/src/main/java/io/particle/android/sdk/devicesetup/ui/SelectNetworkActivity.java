@@ -86,7 +86,7 @@ public class SelectNetworkActivity extends RequiresWifiScansActivity
             startActivity(PasswordEntryActivity.buildIntent(this, softApSSID, selectedNetwork.scan));
         } else {
             SEGAnalytics.track("Device Setup: Selected open network");
-            SSID softApSSID = wifiFacade.getCurrentlyConnectedSSID();
+            SSID softApSSID = wifiFacade.getCurrentlyConnectedSSID(true);
             startActivity(ConnectingActivity.buildIntent(this, softApSSID, selectedNetwork.scan));
         }
         finish();
